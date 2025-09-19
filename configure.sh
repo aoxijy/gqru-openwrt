@@ -22,6 +22,7 @@ echo "src-git passwall2 https://github.com/xiaorouji/openwrt-passwall2.git;main"
 
 # 添加 luci-theme-neobird 主题源
 echo 'src-git neobird https://github.com/thinktip/luci-theme-neobird.git' >>feeds.conf.default
+git clone -b 18.06 https://github.com/jerrykuku/luci-theme-argon.git  package/lean/luci-theme-argon
 
 # 删除默认主题（如有需要），并设置 neobird 为默认主题
 # 注意：这里假设原本没有直接删除主题包的操作，仅通过配置设置默认主题

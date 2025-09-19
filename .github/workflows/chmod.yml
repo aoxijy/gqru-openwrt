@@ -1,4 +1,4 @@
-name: Set Execute Permissions for Scripts
+name: chmod
 
 on:
   push:

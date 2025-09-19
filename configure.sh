@@ -11,7 +11,7 @@ sed -i 's/192.168.1.1/192.168.10.1/g' package/base-files/files/bin/config_genera
 #echo 'src-git helloworld https://github.com/fw876/helloworld' >>feeds.conf.default
 
 # luci-theme-infinityfreedom
-echo 'src-git infinityfreedom https://github.com/xiaoqingfengATGH/luci-theme-infinityfreedom.git' >>feeds.conf.default
+echo 'src-git neobird https://github.com/thinktip/luci-theme-neobird.git' >>feeds.conf.default
 
 # passwall
 echo "src-git passwall_packages https://github.com/xiaorouji/openwrt-passwall-packages.git;main" >> feeds.conf.default

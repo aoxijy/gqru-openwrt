@@ -1,0 +1,1 @@
+luci-theme-design luci-app-easytier luci-app-turboacc luci-app-npc -luci-proto-wireguard -luci-app-cifs-mount -luci-app-partexp -luci-app-syscontrol -luci-app-advancedplus -luci-app-upnp

@@ -89,6 +89,44 @@ jobs:
         chmod +x $GITHUB_WORKSPACE/$SYS_CONF_SH
         $GITHUB_WORKSPACE/$SYS_CONF_SH
 
+    - name: Clean existing directories
+      working-directory: /github-builder/openwrt
+      run: |
+        # 清理可能已存在的目录
+        rm -rf package/otherapp/OpenwrtApp
+        rm -rf package/otherapp/OpenAppFilter
+        rm -rf package/otherapp/luci-app-pushbot
+        rm -rf package/luci-app-openclash
+        rm -rf package/lean/luci
+        rm -rf package/lean/packages
+        rm -rf package/feeds/routing
+        rm -rf package/feeds/telephony
+
+    - name: Fix duplicate feeds
+      working-directory: /github-builder/openwrt
+      run: |
+        # 备份原始文件
+        cp feeds.conf.default feeds.conf.default.backup
+        
+        # 移除重复的 luci 源
+        echo "处理前的 feeds.conf.default 内容："
+        cat feeds.conf.default | grep -v '^#' | grep -v '^$'
+        
+        # 使用 awk 去除重复的 feed 名称
+        awk '
+        /^#/ { print; next }
+        {
+            if ($2 in seen) {
+                print "跳过重复的feed: "$2 > "/dev/stderr"
+                next
+            }
+            seen[$2] = 1
+            print
+        }' feeds.conf.default > feeds.conf.default.tmp && mv feeds.conf.default.tmp feeds.conf.default
+        
+        echo "处理后的 feeds.conf.default 内容："
+        cat feeds.conf.default | grep -v '^#' | grep -v '^$'
+
     - name: Update feeds
       working-directory: /github-builder/openwrt
       run: ./scripts/feeds update -a
@@ -131,6 +169,7 @@ jobs:
         # 移除可能导致问题的配置
         sed -i '/CONFIG_DEFAULT_luci/d' .config
         # 显示最终配置
+        echo "最终配置摘要："
         cat .config | grep -E "CONFIG_TARGET|CONFIG_PACKAGE" | head -20
 
     - name: Download package
@@ -153,7 +192,7 @@ jobs:
       run: |
         echo -e "$(nproc) thread compile"
         # 先尝试单线程编译以确保稳定性
-        make -j1 V=s
+        make -j1 V=s || make -j1 V=s
         echo "status=success" >> $GITHUB_OUTPUT
         grep '^CONFIG_TARGET.*DEVICE.*=y' .config | sed -r 's/.*DEVICE_(.*)=y/\1/' > DEVICE_NAME
         [ -s DEVICE_NAME ] && echo "DEVICE_NAME=_$(cat DEVICE_NAME)" >> $GITHUB_ENV

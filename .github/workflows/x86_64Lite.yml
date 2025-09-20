@@ -37,11 +37,9 @@ jobs:
         sudo -E apt-get -qq autoremove --purge
         sudo -E apt-get -qq clean
         sudo timedatectl set-timezone "$TZ"
-        # 创建基本目录结构
         sudo mkdir -p /github-builder
         sudo chown $USER:$GROUPS /github-builder
 
-    # 释放Ubuntu磁盘空间
     - name: Free up Ubuntu disk space
       uses: jlumbroso/free-disk-space@main
       with:
@@ -53,7 +51,6 @@ jobs:
         docker-images: true
         swap-storage: true
 
-    # 创建模拟物理磁盘并挂载到/github-builder
     - name: Create virtual physical disk
       run: |
         mnt_size=$(expr $(df -h /mnt | tail -1 | awk '{print $4}' | sed 's/[[:alpha:]]//g' | sed 's/\..*//') - 1)
@@ -96,9 +93,19 @@ jobs:
       working-directory: /github-builder/openwrt
       run: ./scripts/feeds update -a
 
-    - name: Install feeds
+    - name: Install feeds and fix dependencies
       working-directory: /github-builder/openwrt
-      run: ./scripts/feeds install -a
+      run: |
+        ./scripts/feeds install -a
+        # 修复缺失的依赖
+        ./scripts/feeds install luci-base
+        ./scripts/feeds install luci-compat
+        ./scripts/feeds install luci-lib-json
+        ./scripts/feeds install luci-lib-nixio
+        ./scripts/feeds install luci-proto-ipv6
+        ./scripts/feeds install luci-app-ksmbd
+        ./scripts/feeds install luci-app-samba
+        ./scripts/feeds install luci-app-samba4
 
     - name: Load custom configuration
       working-directory: /github-builder/openwrt
@@ -114,13 +121,17 @@ jobs:
       run: |
         cat $GITHUB_WORKSPACE/configs/Driver.config >> .config
 
-    - name: Modify configuration
+    - name: Modify configuration and sync
       working-directory: /github-builder/openwrt
       run: |
         cat $GITHUB_WORKSPACE/$EXTERNAL_FILE >> .config
+        # 确保配置同步
         make defconfig
-        sed -i '/CONFIG_DEFAULT_luci/'d .config
-        cat .config
+        make oldconfig
+        # 移除可能导致问题的配置
+        sed -i '/CONFIG_DEFAULT_luci/d' .config
+        # 显示最终配置
+        cat .config | grep -E "CONFIG_TARGET|CONFIG_PACKAGE" | head -20
 
     - name: Download package
       id: package
@@ -130,12 +141,19 @@ jobs:
         find dl -size -1024c -exec ls -l {} \;
         find dl -size -1024c -exec rm -f {} \;
 
+    - name: Final configuration sync
+      working-directory: /github-builder/openwrt
+      run: |
+        make defconfig
+        make oldconfig
+
     - name: Compile the firmware
       id: compile
       working-directory: /github-builder/openwrt
       run: |
         echo -e "$(nproc) thread compile"
-        make -j$(nproc) V=s || make -j4 V=s
+        # 先尝试单线程编译以确保稳定性
+        make -j1 V=s
         echo "status=success" >> $GITHUB_OUTPUT
         grep '^CONFIG_TARGET.*DEVICE.*=y' .config | sed -r 's/.*DEVICE_(.*)=y/\1/' > DEVICE_NAME
         [ -s DEVICE_NAME ] && echo "DEVICE_NAME=_$(cat DEVICE_NAME)" >> $GITHUB_ENV
